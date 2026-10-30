@@ -700,25 +700,31 @@ std::string preprocess_glsl(const std::string& glsl, GLenum shaderType) {
         const int sourceVersion = getGLSLVersion(glsl.c_str());
 
     if (sourceVersion >= 0 && sourceVersion < 140) {
-        if (shaderType == GL_VERTEX_SHADER) {
-            ret = std::regex_replace(ret, std::regex(R"(\battribute\b)"), "in");
-            ret = std::regex_replace(ret, std::regex(R"(\bvarying\b)"), "out");
-        } else if (shaderType == GL_FRAGMENT_SHADER) {
-            ret = std::regex_replace(ret, std::regex(R"(\bvarying\b)"), "in");
+    if (shaderType == GL_VERTEX_SHADER) {
+        replace_glsl_identifier(ret, "attribute", "in");
+        replace_glsl_identifier(ret, "varying", "out");
+    } else if (shaderType == GL_FRAGMENT_SHADER) {
+        replace_glsl_identifier(ret, "varying", "in");
 
-            if (ret.find("gl_FragColor") != std::string::npos) {
-                size_t versionEnd = ret.find('\n');
-                if (versionEnd != std::string::npos) {
-                    ret.insert(versionEnd + 1, "out vec4 mg_FragColor;\n");
-                }
+        if (ret.find("gl_FragColor") != std::string::npos) {
+            size_t versionPos = ret.find("#version");
+            size_t versionEnd = versionPos != std::string::npos
+                ? ret.find('\n', versionPos)
+                : std::string::npos;
 
-                ret = std::regex_replace(
-                    ret, std::regex(R"(\bgl_FragColor\b)"), "mg_FragColor");
+            if (versionEnd != std::string::npos) {
+                ret.insert(versionEnd + 1, "out vec4 mg_FragColor;\n");
+            } else if (versionPos != std::string::npos) {
+                ret += "\nout vec4 mg_FragColor;\n";
+            } else {
+                ret.insert(0, "out vec4 mg_FragColor;\n");
             }
-        }
 
-        ret = std::regex_replace(
-            ret, std::regex(R"(\btexture2D\s*\()"), "texture(");
+            replace_glsl_identifier(ret, "gl_FragColor", "mg_FragColor");
+        }
+    }
+
+    replace_glsl_identifier(ret, "texture2D", "texture");
     }
     // Remove lines beginning with `#line`
     ret = replace_line_starting_with(ret, "#line");
