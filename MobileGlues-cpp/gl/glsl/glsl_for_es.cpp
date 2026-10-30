@@ -637,6 +637,29 @@ void inject_mg_macro_definition(std::string& glslCode) {
 
 std::string preprocess_glsl(const std::string& glsl, GLenum shaderType) {
     std::string ret = glsl;
+        const int sourceVersion = getGLSLVersion(glsl.c_str());
+
+    if (sourceVersion >= 0 && sourceVersion < 140) {
+        if (shaderType == GL_VERTEX_SHADER) {
+            ret = std::regex_replace(ret, std::regex(R"(\battribute\b)"), "in");
+            ret = std::regex_replace(ret, std::regex(R"(\bvarying\b)"), "out");
+        } else if (shaderType == GL_FRAGMENT_SHADER) {
+            ret = std::regex_replace(ret, std::regex(R"(\bvarying\b)"), "in");
+
+            if (ret.find("gl_FragColor") != std::string::npos) {
+                size_t versionEnd = ret.find('\n');
+                if (versionEnd != std::string::npos) {
+                    ret.insert(versionEnd + 1, "out vec4 mg_FragColor;\n");
+                }
+
+                ret = std::regex_replace(
+                    ret, std::regex(R"(\bgl_FragColor\b)"), "mg_FragColor");
+            }
+        }
+
+        ret = std::regex_replace(
+            ret, std::regex(R"(\btexture2D\s*\()"), "texture(");
+    }
     // Remove lines beginning with `#line`
     ret = replace_line_starting_with(ret, "#line");
     // Act as if disable_GL_ARB_derivative_control is false
