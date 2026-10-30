@@ -634,6 +634,65 @@ void inject_mg_macro_definition(std::string& glslCode) {
 
     glslCode.insert(insertionPos, macro_definitions);
 }
+static void replace_glsl_identifier(std::string& source,
+                                    const std::string& from,
+                                    const std::string& to) {
+    bool lineComment = false;
+    bool blockComment = false;
+
+    for (size_t i = 0; i < source.size();) {
+        if (lineComment) {
+            if (source[i] == '\n')
+                lineComment = false;
+            ++i;
+            continue;
+        }
+
+        if (blockComment) {
+            if (source[i] == '*' && i + 1 < source.size() &&
+                source[i + 1] == '/') {
+                blockComment = false;
+                i += 2;
+            } else {
+                ++i;
+            }
+            continue;
+        }
+
+        if (source[i] == '/' && i + 1 < source.size()) {
+            if (source[i + 1] == '/') {
+                lineComment = true;
+                i += 2;
+                continue;
+            }
+            if (source[i + 1] == '*') {
+                blockComment = true;
+                i += 2;
+                continue;
+            }
+        }
+
+        if (source.compare(i, from.size(), from) == 0) {
+            bool left = i == 0 ||
+                !(std::isalnum(static_cast<unsigned char>(source[i - 1])) ||
+                  source[i - 1] == '_');
+
+            size_t end = i + from.size();
+
+            bool right = end >= source.size() ||
+                !(std::isalnum(static_cast<unsigned char>(source[end])) ||
+                  source[end] == '_');
+
+            if (left && right) {
+                source.replace(i, from.size(), to);
+                i += to.size();
+                continue;
+            }
+        }
+
+        ++i;
+    }
+}
 
 std::string preprocess_glsl(const std::string& glsl, GLenum shaderType) {
     std::string ret = glsl;
