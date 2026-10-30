@@ -18,6 +18,7 @@
 #include <regex>
 #include <strstream>
 #include <algorithm>
+#include <cctype>
 #include <sstream>
 #include "cache.h"
 #include "../../version.h"
